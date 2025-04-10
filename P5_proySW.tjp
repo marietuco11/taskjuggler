@@ -19,7 +19,7 @@ project pSix "Web Game"  2024-12-15 +5m {
   # the project reports. If not specified, the current day will be
   # used, but this will likely be outside of the project range, so it
   # can't be seen in the reports.
-  now 2025-02-25-13:00
+  now 2025-04-10-13:00
   # The currency for all money values is the US Dollar.
   currency "EUR"
 
@@ -47,6 +47,7 @@ account cost "Project Cost" {
   account wFront "Web Front-End"
   account mFront "Mobile Front-end"
   account back "Back-End"
+  account cloud "Cloud Deployment"
 }
 account rev "Payments"
 # The Profit&Loss analysis should be rev - cost accounts.
@@ -68,6 +69,11 @@ resource dev2 "Samantha Müller" {
 resource dev3 "Peter Green" {
   email "kkk@unizar.es"
 }
+resource dev4 "Mario Hernandez" {
+  email "873094@unizar.es"
+  limits { dailymax 4h }
+  rate 120
+}
 
 # Now we specify the work packages. The whole project is described as
 # a task that contains subtasks. These subtasks are then broken down
@@ -79,7 +85,7 @@ task WMGame "Web & Mobile Game" {
   # All work-related costs will be booked to this account unless the
   # subtasks specify something different.
   chargeset manag
-  
+
   # For the duration of the project we have running cost that are not
   # included in the labor cost.
   charge 60 perday
@@ -92,7 +98,7 @@ task WMGame "Web & Mobile Game" {
   }
 
   task tback "Back End" {
-    # It is necessary to “purge” the “chargeset” because it has been assigned previously to other variable 
+    # It is necessary to "purge" the "chargeset" because it has been assigned previously to other variable
     purge chargeset
     chargeset back
     responsible dev1
@@ -144,7 +150,72 @@ task WMGame "Web & Mobile Game" {
       effort 6d
       allocate dev1
       depends WMGame.twebF.tFEc
-    }    
+    }
+  }
+
+  task tmobileF "Mobile Front End" {
+    purge chargeset
+    chargeset mFront
+    responsible dev4
+    depends WMGame.tback.tBEd
+
+    task tMGUId "Mobile GUI Design" {
+      effort 7d
+      allocate dev4, dev3
+    }
+
+    task tMFEResponsive "Mobile Responsive Design" {
+      effort 5d
+      allocate dev4
+      depends WMGame.tmobileF.tMGUId
+    }
+
+    task tMFEc "Mobile Front End Construction" {
+      effort 18d
+      allocate dev2, dev4
+      depends WMGame.tmobileF.tMFEResponsive
+    }
+
+    task tMFEt "Mobile Front End Test" {
+      effort 8d
+      allocate dev1, dev4
+      depends WMGame.tmobileF.tMFEc
+      journalentry 2025-04-10 "Complejidad en pruebas multiplataforma" {
+        author dev4
+        alert yellow
+        summary "Las pruebas en diferentes dispositivos móviles están resultando más complejas de lo esperado debido a la fragmentación de versiones de sistema operativo."
+      }
+    }
+  }
+
+  task tcloud "Cloud Deployment" {
+    purge chargeset
+    chargeset cloud
+    responsible dev1
+    depends WMGame.tback.tbackDev
+
+    task tCloudEval "Cloud Provider Evaluation" {
+      effort 3d
+      allocate dev1, dev4
+    }
+
+    task tCloudDesign "Cloud Architecture Design" {
+      effort 4d
+      allocate dev1, dev4
+      depends WMGame.tcloud.tCloudEval
+    }
+
+    task tCloudDeploy "Deployment Setup" {
+      effort 6d
+      allocate dev1
+      depends WMGame.tcloud.tCloudDesign
+    }
+
+    task tCloudTest "Cloud Performance Testing" {
+      effort 5d
+      allocate dev1, dev4
+      depends WMGame.tcloud.tCloudDeploy
+    }
   }
 
   task ttest "Acceptance tests" {
@@ -154,9 +225,12 @@ task WMGame "Web & Mobile Game" {
       actual:effort 20d
       depends WMGame.twebF
       depends WMGame.tback
+      depends WMGame.tmobileF
+      depends WMGame.tcloud
+      start 2025-05-15
       }
 
-    
+
   task deliveries "Milestones" {
 
     # Some milestones have customer payments associated with them. We
@@ -170,7 +244,7 @@ task WMGame "Web & Mobile Game" {
       # Here we use the built-in macro ${projectstart} to align the
       # start of the task with the above specified project time frame.
       start ${projectstart}
-  
+
       # At the beginning of this task we receive a payment from the
       # customer. This is credited to the account associated with this
       # task when the task starts.
@@ -209,7 +283,7 @@ macro TaskTip [
     '''Followers: '''
 
     <-query attribute='followers'->
-    ->8-
+  ->8-
 ]
 
 textreport frame "" {
@@ -223,7 +297,7 @@ textreport frame "" {
     formats html
     center '<[report id="overview"]>'
   }
-  
+
   textreport "Status" {
     formats html
     center -8<-
@@ -252,6 +326,12 @@ textreport frame "" {
     title "Resource Graph"
     center '<[report id="resourceGraph"]>'
   }
+
+  textreport "PlanificacionInicial" {
+    formats html
+    title "Planificación Inicial"
+    center '<[report id="initialPlan"]>'
+  }
 }
 
 # A traditional Gantt chart with a project overview.
@@ -270,6 +350,19 @@ taskreport overview "" {
   caption 'All effort values are in man days.'
 }
 
+# Report for the initial plan
+taskreport initialPlan "" {
+  scenarios plan
+  headline "Initial Project Plan"
+  columns bsi { title 'WBS' },
+          name, start, end, effort, cost,
+          revenue, chart { ${TaskTip} }
+  timeformat "%a %Y-%m-%d"
+  loadunit days
+  hideresource @all
+  balance cost rev
+  caption 'All effort values are in man days. This shows the initial plan.'
+}
 
 # Macro to set the background color of a cell according to the alert
 # level of the task.
